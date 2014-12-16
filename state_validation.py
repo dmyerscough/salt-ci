@@ -10,7 +10,7 @@ from io import BytesIO
 from docker import Client
 
 
-def build(repo, rev, location, socket='/var/run/docker.sock'):
+def build(repo, rev, image, location, socket='/var/run/docker.sock'):
     '''
     Build a docker image and install a salt minion, checkout the pull request
     an perform a function test against the new code.
@@ -25,7 +25,7 @@ def build(repo, rev, location, socket='/var/run/docker.sock'):
     The docket socket to perform all communication accorss
     '''
     docker = '''
-    FROM centos:centos6
+    FROM {0}
 
     RUN yum -y install git wget dmidecode pciutils
     RUN wget -O - https://bootstrap.saltstack.com | sh -s -- -X
@@ -33,13 +33,13 @@ def build(repo, rev, location, socket='/var/run/docker.sock'):
     RUN git init /tmp/repo
     WORKDIR /tmp/repo
 
-    RUN git config remote.origin.url {0}
-    RUN git fetch --tags --progress {0} +refs/pull/*:refs/remotes/origin/pr/*
-    RUN git checkout -f {1}
+    RUN git config remote.origin.url {1}
+    RUN git fetch --tags --progress {1} +refs/pull/*:refs/remotes/origin/pr/*
+    RUN git checkout -f {2}
 
-    RUN ln -s /tmp/repo/{2} /srv/salt
+    RUN ln -s /tmp/repo/{3} /srv/salt
     RUN salt-call --local state.highstate
-    '''.format(repo, rev, location)
+    '''.format(image, repo, rev, location)
 
     cli = Client(base_url='unix:/{0}'.format(socket))
 
@@ -54,7 +54,7 @@ def build(repo, rev, location, socket='/var/run/docker.sock'):
         return int(ret.group(1))
     else:
         print(res)
-        print('Unable to find the number of failed states')
+        print('FAILED!!')
         return 1
 
 if __name__ == '__main__':
@@ -67,10 +67,12 @@ if __name__ == '__main__':
                         help='Git repository', required=True)
     parser.add_argument('--revision', dest='revision', type=str,
                         default='master', help='Git revision to check')
+    parser.add_argument('--image', dest='image', type=str,
+                        default='centos:centos6', help='Docker Image')
     parser.add_argument('--top', dest='top', type=str,
                         help='Location of top.sls', required=True)
 
     opt = parser.parse_args()
 
     # Exit based on the test results
-    sys.exit(build(opt.repo, opt.revision, opt.top, opt.socket))
+    sys.exit(build(opt.repo, opt.revision, opt.image, opt.top, opt.socket))
