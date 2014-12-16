@@ -1,0 +1,2 @@
+docker-py==0.6.0
+argparse==1.2.1
