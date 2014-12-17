@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+'''
+Git pre-hook to validate Salt State files ensuring they are YAML
+compliant. 
+
+INSTALL
+=======
+
+Copy pre-commit to the hooks directory within your project:-
+
+  $ cp state_check .git/hooks/pre-commit
+
+'''
+from __future__ import absolute_import
+from subprocess import Popen, PIPE
+
+import yaml
+import sys
+
+
+def validate(filename):
+    '''
+    Ensure Salt States are YAML compliant
+    '''
+    with open(filename, 'r') as fh:
+        content = fh.readlines()
+
+    try:
+        yaml.load(''.join(content))
+    except yaml.scanner.ScannerError as e:
+        print('`{0}`\n{1}'.format(filename, e.problem_mark))
+        return False
+
+    # valid YAML
+    return True
+
+
+if __name__ == '__main__':
+
+    proc = Popen(['git', 'diff-index', '--name-only', 'HEAD'], stdout=PIPE, stderr=PIPE)
+
+    (filenames, err) = proc.communicate()
+
+    if proc.returncode != 0:
+        print(err)
+        sys.exit(1)
+
+    for filename in filenames.splitlines():
+        # We only care about Salt States (sls)
+        if filename.endswith('.sls'):
+            if not validate(filename):
+                sys.exit(1)
+
+    sys.exit(0)
