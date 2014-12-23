@@ -36,6 +36,7 @@ def build(repo, rev, image, hostname, location, socket='/var/run/docker.sock'):
 
     RUN git config remote.origin.url {2}
     RUN git fetch --tags --progress {2} +refs/pull/*:refs/remotes/origin/pr/*
+    RUN git pull
     RUN git checkout -f {3}
 
     RUN ln -s /tmp/repo/{4} /srv/salt
